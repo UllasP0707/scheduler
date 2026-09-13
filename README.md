@@ -8,14 +8,25 @@ Weekwise is a local weekly staff scheduler for creating, reviewing, and printing
 
 ## Features
 
+Two screens, in the order the job is done.
+
+**Build the week**
+
 - Add the people working each week
 - Configure separate first- and second-shift times for every day
 - Use flexible shift windows between the store hours of 10 AM and 11 PM
-- Assign one or more team members to each shift
-- Automatically calculate each person's weekly hours
-- Review the week in a horizontal, print-friendly table
+- See the handover window where both shifts are on the floor together
 - Navigate between weeks without losing saved schedules
-- Keep all schedule data private in the browser's local storage
+
+**Assign and print**
+
+- Assign one or more team members to each shift from a dropdown in the grid
+- Automatically calculate each person's weekly hours
+- Read the whole week in a horizontal, print-friendly grid
+- Download the sheet as a PNG, or print it: either way the controls drop away
+  and the names stay
+
+Schedule data stays private in the browser's local storage.
 
 ## Run locally
 
