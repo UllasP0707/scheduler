@@ -2,6 +2,10 @@
 
 Weekwise is a local weekly staff scheduler for creating, reviewing, and printing clear team schedules.
 
+## Live app
+
+[Open Weekwise Scheduler](https://ullasp0707.github.io/scheduler/)
+
 ## Features
 
 - Add the people working each week

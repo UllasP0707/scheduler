@@ -28,9 +28,11 @@ type StoredSchedule = Record<string, WeekData>;
 const STORAGE_KEY = "weekwise-scheduler-v1";
 
 function emptySchedule(): Record<Day, DaySchedule> {
-  return Object.fromEntries(
-    DAYS.map((day) => [day, { opening: [], closing: [] }]),
-  ) as Record<Day, DaySchedule>;
+  const schedule = {} as Record<Day, DaySchedule>;
+  DAYS.forEach((day) => {
+    schedule[day] = { opening: [], closing: [] };
+  });
+  return schedule;
 }
 
 function defaultShiftWindow(day: Day, shift: Shift): ShiftWindow {
@@ -39,18 +41,14 @@ function defaultShiftWindow(day: Day, shift: Shift): ShiftWindow {
 }
 
 function emptyShiftTimes(): Record<Day, Record<Shift, ShiftWindow>> {
-  return Object.fromEntries(
-    DAYS.map((day) => [
-      day,
-      {
-        opening: defaultShiftWindow(day, "opening"),
-        closing: defaultShiftWindow(day, "closing"),
-      },
-    ]),
-  ) as Record<
-    Day,
-    Record<Shift, ShiftWindow>
-  >;
+  const shiftTimes = {} as Record<Day, Record<Shift, ShiftWindow>>;
+  DAYS.forEach((day) => {
+    shiftTimes[day] = {
+      opening: defaultShiftWindow(day, "opening"),
+      closing: defaultShiftWindow(day, "closing"),
+    };
+  });
+  return shiftTimes;
 }
 
 function emptyWeek(): WeekData {
@@ -240,23 +238,20 @@ export default function Home() {
   };
 
   const removePerson = (personId: string) => {
-    updateCurrentWeek((week) => ({
-      ...week,
-      people: week.people.filter((person) => person.id !== personId),
-      schedule: Object.fromEntries(
-        DAYS.map((day) => [
-          day,
-          {
-            opening: week.schedule[day].opening.filter(
-              (id) => id !== personId,
-            ),
-            closing: week.schedule[day].closing.filter(
-              (id) => id !== personId,
-            ),
-          },
-        ]),
-      ) as Record<Day, DaySchedule>,
-    }));
+    updateCurrentWeek((week) => {
+      const schedule = {} as Record<Day, DaySchedule>;
+      DAYS.forEach((day) => {
+        schedule[day] = {
+          opening: week.schedule[day].opening.filter((id) => id !== personId),
+          closing: week.schedule[day].closing.filter((id) => id !== personId),
+        };
+      });
+      return {
+        ...week,
+        people: week.people.filter((person) => person.id !== personId),
+        schedule,
+      };
+    });
   };
 
   const toggleAssignment = (day: Day, shift: Shift, personId: string) => {
