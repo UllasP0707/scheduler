@@ -1,0 +1,16 @@
+.segmented-track { position: relative; isolation: isolate; }
+.segmented-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition: transform 200ms cubic-bezier(.2,.8,.2,1), width 200ms cubic-bezier(.2,.8,.2,1), height 200ms cubic-bezier(.2,.8,.2,1);
+}
+.segmented-track > button, .segmented-track > a { position: relative; z-index: 1; }
+.segmented-track[data-measured] > .segmented-indicator { visibility: visible; }
+.segmented-track[data-measured] > [aria-selected="true"],
+.segmented-track[data-measured] > [aria-current="page"] { background: transparent; box-shadow: none; }
+@media (prefers-reduced-motion: reduce) {
+  .segmented-track > .segmented-indicator { transition: none !important; }
+}
