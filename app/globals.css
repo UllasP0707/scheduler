@@ -36,6 +36,14 @@
   --danger-soft: #fef2f2;
   --info: #2563eb;
   --info-soft: #eff6ff;
+  /* The two shifts with a standing order job (lib/schedule.ts shiftDuty):
+     violet for the Monday to Wednesday ordering mornings, green for the
+     Thursday to Saturday order-update evenings. Both text colours are AA on
+     their soft fills. */
+  --ordering: #6d28d9;
+  --ordering-soft: #f3effe;
+  --order-update: #047857;
+  --order-update-soft: #e6f6ee;
   /* Quiet, rounded scrollbars. */
   --scrollbar-thumb: #cfd3db;
   --scrollbar-thumb-hover: #b3b9c4;
@@ -84,6 +92,10 @@
   --color-danger-soft: var(--danger-soft);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
+  --color-ordering: var(--ordering);
+  --color-ordering-soft: var(--ordering-soft);
+  --color-order-update: var(--order-update);
+  --color-order-update-soft: var(--order-update-soft);
   /* The box radius scale, as `rounded-control` and `rounded-chip`. */
   --radius-control: var(--control-radius);
   --radius-chip: var(--chip-radius);

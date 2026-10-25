@@ -8,6 +8,7 @@ import {
   STORE_CLOSE,
   STORE_OPEN,
   formatHour,
+  openHours,
   overlapLabel,
   overlapWindow,
   shiftWindowFor,
@@ -48,6 +49,10 @@ const endOptions = (start: number) =>
  * the page. The times are the same on most days and differ on two, so the shape
  * that fits is "pick the day you are changing" rather than a form seven times
  * long that a reader has to scroll past to reach the part they came for.
+ *
+ * CLOSED UNTIL ASKED. The windows carry forward from week to week and hardly
+ * ever change, so the card's resting face is the answer people look for, each
+ * day's open and close, and the editor only opens behind Edit.
  */
 export function ShiftTimesCard({
   week,
@@ -59,104 +64,124 @@ export function ShiftTimesCard({
   onReset: (day: Day) => void;
 }) {
   const [settingsDay, setSettingsDay] = useState<Day>("Monday");
+  const [editing, setEditing] = useState(false);
   const overlap = overlapWindow(week, settingsDay);
 
   return (
     <Card as="section">
       <CardHeader
         title="Shift times"
-        subtitle="Set the two windows for one day."
+        subtitle={editing ? "Set the two windows for one day." : "Open to close, each day. Carries into later weeks."}
         icon={<ClockIcon size={16} />}
+        action={
+          <Button variant={editing ? "primary" : "secondary"} size="sm" onClick={() => setEditing(!editing)}>
+            {editing ? "Done" : "Edit"}
+          </Button>
+        }
       />
 
-      <div className="flex flex-col gap-4 p-4">
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted">
-          Set times for
-          <SelectMenu
-            value={settingsDay}
-            options={DAY_OPTIONS}
-            onChange={(value) => setSettingsDay(value as Day)}
-            ariaLabel="Day to set times for"
-            buttonClass={`${selectTriggerClass} w-full`}
-            panelClass="w-56"
-          />
-        </label>
+      {!editing && (
+        <ul className="divide-y divide-border px-4 py-1">
+          {DAYS.map((day) => (
+            <li key={day} className="flex items-center justify-between gap-3 py-2 text-sm">
+              <span className="font-medium text-ink">{day}</span>
+              <span className="tabular-nums text-muted">{openHours(week, day)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
 
-        {SHIFTS.map((shift) => {
-          const window = shiftWindowFor(week, settingsDay, shift);
-          const Glyph = SHIFT_GLYPH[shift];
-          return (
-            <fieldset key={shift} className="rounded-control border border-border p-3">
-              <legend className="flex items-center gap-1.5 px-1 text-xs font-semibold text-ink">
-                <span className="text-muted">
-                  <Glyph size={14} />
-                </span>
-                {SHIFT_LABEL[shift]}
-                <Pill tone="accent" className="tnum">
-                  {window.end - window.start} hrs
-                </Pill>
-              </legend>
+      {editing && (
+        <div className="flex flex-col gap-4 p-4">
+          <label className="flex flex-col gap-1 text-xs font-medium text-muted">
+            Set times for
+            <SelectMenu
+              value={settingsDay}
+              options={DAY_OPTIONS}
+              onChange={(value) => setSettingsDay(value as Day)}
+              ariaLabel="Day to set times for"
+              buttonClass={`${selectTriggerClass} w-full`}
+              panelClass="w-56"
+            />
+          </label>
 
-              <div className="mt-1 flex items-end gap-2">
-                <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-medium text-muted">
-                  Starts
-                  <SelectMenu
-                    value={String(window.start)}
-                    options={startOptions()}
-                    onChange={(value) => onUpdate(settingsDay, shift, "start", Number(value))}
-                    ariaLabel={`${SHIFT_LABEL[shift]} start time on ${settingsDay}`}
-                    buttonClass={`${selectTriggerClass} w-full`}
-                    panelClass="w-40"
-                  />
-                </label>
-                <span aria-hidden="true" className="pb-2.5 text-muted">
-                  <ArrowRightIcon size={14} />
-                </span>
-                <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-medium text-muted">
-                  Ends
-                  <SelectMenu
-                    value={String(window.end)}
-                    options={endOptions(window.start)}
-                    onChange={(value) => onUpdate(settingsDay, shift, "end", Number(value))}
-                    ariaLabel={`${SHIFT_LABEL[shift]} end time on ${settingsDay}`}
-                    buttonClass={`${selectTriggerClass} w-full`}
-                    panelClass="w-40"
-                  />
-                </label>
-              </div>
-            </fieldset>
-          );
-        })}
+          {SHIFTS.map((shift) => {
+            const window = shiftWindowFor(week, settingsDay, shift);
+            const Glyph = SHIFT_GLYPH[shift];
+            return (
+              <fieldset key={shift} className="rounded-control border border-border p-3">
+                <legend className="flex items-center gap-1.5 px-1 text-xs font-semibold text-ink">
+                  <span className="text-muted">
+                    <Glyph size={14} />
+                  </span>
+                  {SHIFT_LABEL[shift]}
+                  <Pill tone="accent" className="tnum">
+                    {window.end - window.start} hrs
+                  </Pill>
+                </legend>
 
-        {/* The handover, stated whether or not there is one: "No overlap" is a
-            fact somebody planning cover needs as much as the hours are. */}
-        <div
-          className={`flex items-start gap-2.5 rounded-control px-3 py-2.5 ${
-            overlap ? "bg-accent-soft text-accent-text" : "bg-element text-muted"
-          }`}
-        >
-          <span aria-hidden="true" className="mt-0.5 shrink-0">
-            <OverlapIcon size={15} />
-          </span>
-          <span className="min-w-0">
-            <strong className="block text-xs font-semibold">{overlapLabel(week, settingsDay)}</strong>
-            <span className="block text-xs opacity-80">
-              {overlap ? "Both shifts work together" : "Shift handoff has no overlap"}
+                <div className="mt-1 flex items-end gap-2">
+                  <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-medium text-muted">
+                    Starts
+                    <SelectMenu
+                      value={String(window.start)}
+                      options={startOptions()}
+                      onChange={(value) => onUpdate(settingsDay, shift, "start", Number(value))}
+                      ariaLabel={`${SHIFT_LABEL[shift]} start time on ${settingsDay}`}
+                      buttonClass={`${selectTriggerClass} w-full`}
+                      panelClass="w-40"
+                    />
+                  </label>
+                  <span aria-hidden="true" className="pb-2.5 text-muted">
+                    <ArrowRightIcon size={14} />
+                  </span>
+                  <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-medium text-muted">
+                    Ends
+                    <SelectMenu
+                      value={String(window.end)}
+                      options={endOptions(window.start)}
+                      onChange={(value) => onUpdate(settingsDay, shift, "end", Number(value))}
+                      ariaLabel={`${SHIFT_LABEL[shift]} end time on ${settingsDay}`}
+                      buttonClass={`${selectTriggerClass} w-full`}
+                      panelClass="w-40"
+                    />
+                  </label>
+                </div>
+              </fieldset>
+            );
+          })}
+
+          {/* The handover, stated whether or not there is one: "No overlap" is a
+              fact somebody planning cover needs as much as the hours are. */}
+          <div
+            className={`flex items-start gap-2.5 rounded-control px-3 py-2.5 ${
+              overlap ? "bg-accent-soft text-accent-text" : "bg-element text-muted"
+            }`}
+          >
+            <span aria-hidden="true" className="mt-0.5 shrink-0">
+              <OverlapIcon size={15} />
             </span>
-          </span>
+            <span className="min-w-0">
+              <strong className="block text-xs font-semibold">{overlapLabel(week, settingsDay)}</strong>
+              <span className="block text-xs opacity-80">
+                {overlap ? "Both shifts work together" : "Shift handoff has no overlap"}
+              </span>
+            </span>
+          </div>
+
+          <Button variant="secondary" size="sm" onClick={() => onReset(settingsDay)}>
+            Reset {settingsDay} to default
+          </Button>
+
+          <p className="flex items-start gap-2 text-xs text-muted">
+            <span aria-hidden="true" className="mt-px shrink-0">
+              <InfoIcon size={13} />
+            </span>
+            These times apply to everyone assigned to that shift, this week and every week after it. The
+            latest end time is 11 PM.
+          </p>
         </div>
-
-        <Button variant="secondary" size="sm" onClick={() => onReset(settingsDay)}>
-          Reset {settingsDay} to default
-        </Button>
-
-        <p className="flex items-start gap-2 text-xs text-muted">
-          <span aria-hidden="true" className="mt-px shrink-0">
-            <InfoIcon size={13} />
-          </span>
-          These times apply to everyone assigned to that shift. The latest end time is 11 PM.
-        </p>
-      </div>
+      )}
     </Card>
   );
 }

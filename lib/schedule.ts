@@ -188,6 +188,35 @@ export function overlapLabel(week: WeekData, day: Day) {
   return overlap ? `${formatHour(overlap.start)} to ${formatHour(overlap.end)} overlap` : "No overlap";
 }
 
+/**
+ * The two shifts with a standing job on top of the floor: the Monday to
+ * Wednesday mornings are when the order goes in, and the Thursday to Saturday
+ * evenings are when it is checked and updated. The sheet colours them, and
+ * names them too, so the difference survives a black-and-white printer.
+ */
+export type ShiftDuty = "ordering" | "orderUpdate";
+
+export const DUTY_LABEL: Record<ShiftDuty, string> = {
+  ordering: "Ordering",
+  orderUpdate: "Order update",
+};
+
+export function shiftDuty(day: Day, shift: Shift): ShiftDuty | null {
+  if (shift === "opening" && (day === "Monday" || day === "Tuesday" || day === "Wednesday")) return "ordering";
+  if (shift === "closing" && (day === "Thursday" || day === "Friday" || day === "Saturday")) return "orderUpdate";
+  return null;
+}
+
+/** When the store is staffed on a day: the first shift's start to the second
+ *  shift's end, whichever way round they happen to fall. */
+export function openHours(week: WeekData, day: Day) {
+  const opening = shiftWindowFor(week, day, "opening");
+  const closing = shiftWindowFor(week, day, "closing");
+  const start = Math.min(opening.start, closing.start);
+  const end = Math.max(opening.end, closing.end);
+  return `${formatHour(start)} to ${formatHour(end)}`;
+}
+
 /* ------------------------------------------------------------------------- */
 /* The store                                                                  */
 /* ------------------------------------------------------------------------- */
@@ -251,18 +280,61 @@ function subscribe(onChange: () => void): () => void {
   };
 }
 
-/** Rewrite the week currently on screen. A week that has never been touched is
- *  created from the defaults at the moment it is first edited. */
+/**
+ * The week on screen, saved or not.
+ *
+ * THE TEAM AND THE SHIFT TIMES CARRY FORWARD. A week nobody has touched yet
+ * starts as a copy of the nearest earlier saved week's people and windows, with
+ * every cell empty: the same crew works the same hours most weeks, and typing
+ * them in again every Monday was the chore. Before the first saved week there is
+ * nothing earlier, so it borrows from the nearest later one instead.
+ */
+export function resolveWeek(weeks: StoredSchedule, weekStart: string): WeekData {
+  const saved = weeks[weekStart];
+  if (saved) return saved;
+  const keys = Object.keys(weeks).sort();
+  const source = [...keys].reverse().find((key) => key < weekStart) ?? keys.find((key) => key > weekStart);
+  if (!source) return emptyWeek();
+  const from = weeks[source];
+  return {
+    people: from.people,
+    schedule: emptySchedule(),
+    shiftTimes: byDay((day) => ({
+      opening: shiftWindowFor(from, day, "opening"),
+      closing: shiftWindowFor(from, day, "closing"),
+    })),
+  };
+}
+
+/** Rewrite the week on screen and nothing else: an assignment, a cleared grid. */
 function updateWeek(current: ScheduleState, update: (week: WeekData) => WeekData): ScheduleState {
   if (!current.weekStart) return current;
   return {
     ...current,
     weeks: {
       ...current.weeks,
-      [current.weekStart]: update(current.weeks[current.weekStart] ?? emptyWeek()),
+      [current.weekStart]: update(resolveWeek(current.weeks, current.weekStart)),
     },
   };
 }
+
+/**
+ * Rewrite the week on screen AND every saved week after it. Team and shift-time
+ * changes go forward from here: somebody who leaves is off every later week, a
+ * new window holds until it is changed again, and the weeks already worked keep
+ * the crew and the hours they actually had.
+ */
+function updateFromWeek(current: ScheduleState, update: (week: WeekData) => WeekData): ScheduleState {
+  if (!current.weekStart) return current;
+  const weeks: StoredSchedule = { ...current.weeks };
+  weeks[current.weekStart] = update(resolveWeek(current.weeks, current.weekStart));
+  for (const key of Object.keys(current.weeks)) {
+    if (key > current.weekStart) weeks[key] = update(current.weeks[key]);
+  }
+  return { ...current, weeks };
+}
+
+const sameName = (a: string, b: string) => a.toLocaleLowerCase() === b.toLocaleLowerCase();
 
 export type ScheduleActions = {
   moveWeek: (weeks: number) => void;
@@ -291,33 +363,44 @@ const actions: ScheduleActions = {
       .filter(Boolean);
     if (!names.length) return;
 
+    // One id per new person, minted once, so the same person is the same id in
+    // every week the addition reaches.
+    const incoming = names
+      .filter((name, index, all) => all.findIndex((candidate) => sameName(candidate, name)) === index)
+      .map((name) => ({ id: `${Date.now()}-${crypto.randomUUID()}`, name }));
+
     commit(
-      updateWeek(snapshot(), (week) => {
-        const existing = new Set(week.people.map((person) => person.name.toLocaleLowerCase()));
-        const additions = names
-          .filter(
-            (name, index, all) =>
-              !existing.has(name.toLocaleLowerCase()) &&
-              all.findIndex((candidate) => candidate.toLocaleLowerCase() === name.toLocaleLowerCase()) === index,
-          )
-          .map((name) => ({ id: `${Date.now()}-${crypto.randomUUID()}`, name }));
+      updateFromWeek(snapshot(), (week) => {
+        const additions = incoming.filter(
+          (person) => !week.people.some((existing) => sameName(existing.name, person.name)),
+        );
         return { ...week, people: [...week.people, ...additions] };
       }),
     );
   },
 
-  /** Removing somebody takes their shifts with them. A schedule holding an id
-   *  with no person behind it is a row that renders as nothing. */
+  /** Removing somebody takes their shifts with them, this week and every later
+   *  one. Later weeks are matched by name as well as id: a person typed in by
+   *  hand on two different weeks has two different ids. */
   removePerson(personId) {
+    const current = snapshot();
+    const leaver = resolveWeek(current.weeks, current.weekStart).people.find((p) => p.id === personId);
+    if (!leaver) return;
     commit(
-      updateWeek(snapshot(), (week) => ({
-        ...week,
-        people: week.people.filter((person) => person.id !== personId),
-        schedule: byDay<DaySchedule>((day) => ({
-          opening: week.schedule[day].opening.filter((id) => id !== personId),
-          closing: week.schedule[day].closing.filter((id) => id !== personId),
-        })),
-      })),
+      updateFromWeek(current, (week) => {
+        const leaving = new Set(
+          week.people.filter((p) => p.id === personId || sameName(p.name, leaver.name)).map((p) => p.id),
+        );
+        if (!leaving.size) return week;
+        return {
+          ...week,
+          people: week.people.filter((p) => !leaving.has(p.id)),
+          schedule: byDay<DaySchedule>((day) => ({
+            opening: week.schedule[day].opening.filter((id) => !leaving.has(id)),
+            closing: week.schedule[day].closing.filter((id) => !leaving.has(id)),
+          })),
+        };
+      }),
     );
   },
 
@@ -343,35 +426,33 @@ const actions: ScheduleActions = {
    * no combination of clicks that produces a shift nobody could work.
    */
   updateShiftTime(day, shift, field, hour) {
+    const onScreen = snapshot();
+    const next = { ...shiftWindowFor(resolveWeek(onScreen.weeks, onScreen.weekStart), day, shift) };
+    if (field === "start") {
+      next.start = Math.min(STORE_CLOSE - 1, Math.max(STORE_OPEN, Math.round(hour)));
+      if (next.end <= next.start) next.end = Math.min(STORE_CLOSE, next.start + 1);
+    } else {
+      next.end = Math.min(STORE_CLOSE, Math.max(STORE_OPEN + 1, Math.round(hour)));
+      if (next.start >= next.end) next.start = Math.max(STORE_OPEN, next.end - 1);
+    }
     commit(
-      updateWeek(snapshot(), (week) => {
-        const current = shiftWindowFor(week, day, shift);
-        const next = { ...current };
-        if (field === "start") {
-          next.start = Math.min(STORE_CLOSE - 1, Math.max(STORE_OPEN, Math.round(hour)));
-          if (next.end <= next.start) next.end = Math.min(STORE_CLOSE, next.start + 1);
-        } else {
-          next.end = Math.min(STORE_CLOSE, Math.max(STORE_OPEN + 1, Math.round(hour)));
-          if (next.start >= next.end) next.start = Math.max(STORE_OPEN, next.end - 1);
-        }
-        return {
-          ...week,
-          shiftTimes: {
-            ...(week.shiftTimes ?? emptyShiftTimes()),
-            [day]: {
-              opening: shiftWindowFor(week, day, "opening"),
-              closing: shiftWindowFor(week, day, "closing"),
-              [shift]: next,
-            },
+      updateFromWeek(onScreen, (week) => ({
+        ...week,
+        shiftTimes: {
+          ...(week.shiftTimes ?? emptyShiftTimes()),
+          [day]: {
+            opening: shiftWindowFor(week, day, "opening"),
+            closing: shiftWindowFor(week, day, "closing"),
+            [shift]: next,
           },
-        };
-      }),
+        },
+      })),
     );
   },
 
   resetShiftTimesForDay(day) {
     commit(
-      updateWeek(snapshot(), (week) => ({
+      updateFromWeek(snapshot(), (week) => ({
         ...week,
         shiftTimes: {
           ...(week.shiftTimes ?? emptyShiftTimes()),
@@ -406,7 +487,7 @@ export function useSchedule(): {
   return {
     weekStart: current.weekStart,
     weeks: current.weeks,
-    week: current.weeks[current.weekStart] ?? emptyWeek(),
+    week: resolveWeek(current.weeks, current.weekStart),
     ...actions,
   };
 }

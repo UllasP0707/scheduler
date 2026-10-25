@@ -4,12 +4,14 @@ import type { ReactElement } from "react";
 import { formatWeekLabel } from "@/app/week-label";
 import {
   DAYS,
+  DUTY_LABEL,
   SHIFTS,
   SHIFT_LABEL,
   dayNumber,
   hasOverlap,
   overlapLabel,
   shiftDetails,
+  shiftDuty,
   weeklyHours,
   type Day,
   type Shift,
@@ -115,10 +117,20 @@ export function ScheduleSheet({
 
                 {DAYS.map((day) => {
                   const details = shiftDetails(week, day, shift);
+                  const duty = shiftDuty(day, shift);
                   return (
                     <Td key={day} className="border-l border-border align-top">
                       <span className="mb-1.5 block text-center text-[0.625rem] font-semibold uppercase tracking-wide tabular-nums text-muted">
                         {details.time}
+                        {duty && (
+                          <span
+                            className={`mt-0.5 block normal-case tracking-normal ${
+                              duty === "ordering" ? "text-ordering" : "text-order-update"
+                            }`}
+                          >
+                            {DUTY_LABEL[duty]}
+                          </span>
+                        )}
                       </span>
                       <PeoplePicker
                         people={week.people}
@@ -126,6 +138,7 @@ export function ScheduleSheet({
                         label={`${details.label} on ${day}`}
                         context={`${details.label} · ${details.time}`}
                         hoursByPerson={hoursByPerson}
+                        duty={duty}
                         onToggle={(personId) => onToggle(day, shift, personId)}
                       />
                     </Td>
