@@ -10,7 +10,8 @@ import { Field, Textarea } from "../ui/Field";
 import { Avatar, Pill } from "../ui/Pill";
 
 /**
- * Who is working this week.
+ * Who is on the team. It carries from week to week, so a change made here
+ * holds for this week and every later one.
  *
  * The box takes SEVERAL names at once, split on commas or newlines, because the
  * way this list actually gets filled is somebody pasting a rota out of a message
@@ -50,7 +51,7 @@ export function TeamCard({
     <Card as="section" className={className}>
       <CardHeader
         title="Your team"
-        subtitle="Everybody working this week."
+        subtitle="Carries into later weeks. Add or remove people as the team changes."
         icon={<UsersIcon size={16} />}
         action={
           <Pill tone="muted" className="tnum">
@@ -75,14 +76,14 @@ export function TeamCard({
           </Field>
           <Button type="submit" variant="primary" className="w-full">
             <PlusIcon size={14} />
-            Add to this week
+            Add to team
           </Button>
         </form>
 
         {week.people.length === 0 ? (
           <div className="px-4">
             <EmptyState icon={<UsersIcon size={24} />} title="Your team will appear here">
-              Add the people working this week to get started.
+              Add your team once. Every later week starts with them.
             </EmptyState>
           </div>
         ) : (

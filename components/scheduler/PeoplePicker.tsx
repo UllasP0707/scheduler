@@ -1,6 +1,6 @@
 "use client";
 
-import type { Person } from "@/lib/schedule";
+import type { Person, ShiftDuty } from "@/lib/schedule";
 import { CaretUpDownIcon, CheckIcon, PlusIcon } from "../Icons";
 import { Menu } from "../ui/Menu";
 
@@ -32,13 +32,23 @@ import { Menu } from "../ui/Menu";
  * they were in the cell; the caret goes with the rest of the chrome, and an
  * unfilled shift swaps its "+ Add" for the word "Unassigned" - a blank cell on a
  * rota reads as a printing fault rather than as nobody being on it.
+ *
+ * A SHIFT WITH AN ORDER JOB COLOURS ITS CHIPS (`duty`): violet for ordering,
+ * green for the order update, the blue accent for every other shift.
  */
+const CHIP: Record<ShiftDuty | "none", string> = {
+  none: "bg-accent-soft text-accent-text",
+  ordering: "bg-ordering-soft text-ordering",
+  orderUpdate: "bg-order-update-soft text-order-update",
+};
+
 export function PeoplePicker({
   people,
   assigned,
   label,
   context,
   hoursByPerson,
+  duty = null,
   onToggle,
 }: {
   people: readonly Person[];
@@ -50,6 +60,8 @@ export function PeoplePicker({
   /** Each person's weekly total, shown under their name so the reader can see
    *  who is already loaded before adding one more shift to them. */
   hoursByPerson: Record<string, number>;
+  /** The standing order job on this shift, if any, which picks the chip colour. */
+  duty?: ShiftDuty | null;
   onToggle: (personId: string) => void;
 }) {
   const chosen = people.filter((person) => assigned.includes(person.id));
@@ -71,7 +83,7 @@ export function PeoplePicker({
               {chosen.map((person) => (
                 <span
                   key={person.id}
-                  className="truncate rounded-chip bg-accent-soft px-1.5 py-1 text-center text-xs font-medium text-accent-text"
+                  className={`truncate rounded-chip px-1.5 py-1 text-center text-xs font-medium ${CHIP[duty ?? "none"]}`}
                 >
                   {person.name}
                 </span>

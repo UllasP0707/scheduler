@@ -63,8 +63,11 @@ test("server-renders the week builder", async () => {
   assert.match(html, /Weekly staff planner/);
   assert.match(html, /Shift times/);
   assert.match(html, /Your team/);
-  assert.match(html, /First shift/);
-  assert.match(html, /Second shift/);
+  // Shift times rest closed: each day's open and close, with the editor
+  // behind Edit.
+  assert.match(html, /Monday<\/span><span[^>]*>10 AM to 11 PM/);
+  assert.match(html, />Edit</);
+  assert.doesNotMatch(html, /Reset Monday to default/);
   assert.match(html, /Saved on this device/);
 
   // No app chrome, and no theme machinery: one light theme, drawn once.
@@ -86,6 +89,10 @@ test("server-renders the printable week, with a picker on every shift", async ()
   assert.match(html, /10 AM to 8 PM/);
   assert.match(html, /4 PM to 11 PM/);
   assert.match(html, /4 PM to 8 PM overlap/);
+
+  // The order shifts are named as well as coloured, so print keeps them.
+  assert.match(html, /Ordering/);
+  assert.match(html, /Order update/);
 
   // Assignment happens here, in a dropdown per shift per day.
   assert.match(html, /data-people-picker/);
